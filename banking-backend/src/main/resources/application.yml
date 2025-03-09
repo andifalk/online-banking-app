@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: banking-backend
+  jpa:
+    open-in-view: false
+    generate-ddl: false
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+  mail:
+    host: localhost
+    port: 123
+    username: test
+    password: test
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:8081/realms/BankingApp/protocol/openid-connect/certs
