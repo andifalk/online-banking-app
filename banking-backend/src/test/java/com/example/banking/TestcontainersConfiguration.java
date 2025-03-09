@@ -1,5 +1,6 @@
 package com.example.banking;
 
+import dasniko.testcontainers.keycloak.KeycloakContainer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,18 +17,33 @@ import org.testcontainers.utility.DockerImageName;
 @TestConfiguration(proxyBeanMethods = false)
 class TestcontainersConfiguration {
 
+    private final static String POSTGRES_IMAGE = "postgres:latest";
+    private final static String MAILPIT_IMAGE = "axllent/mailpit:v1.23.1";
+    private final static String KEYCLOAK_IMAGE = "quay.io/keycloak/keycloak:26.1.3";
+    private final static String realmImportFile = "/banking-demo-realm.json";
+    private final static String realmName = "banking-demo";
+
     @Bean
     @ServiceConnection
     PostgreSQLContainer<?> postgresContainer() {
-        return new PostgreSQLContainer<>(DockerImageName.parse("postgres:latest"));
+        return new PostgreSQLContainer<>(DockerImageName.parse(POSTGRES_IMAGE));
     }
+
 
     @Bean
     GenericContainer<?> mailpitContainer() {
-        var container = new GenericContainer<>("axllent/mailpit:v1.15")
+        return new GenericContainer<>(MAILPIT_IMAGE)
                 .withExposedPorts(1025, 8025)
                 .waitingFor(Wait.forLogMessage(".*accessible via.*", 1));
-        return container;
+    }
+
+
+    @Bean
+    KeycloakContainer keycloak() {
+        return new KeycloakContainer(KEYCLOAK_IMAGE)
+                .withAdminUsername("admin")
+                .withAdminPassword("admin")
+                .withRealmImportFile(realmImportFile);
     }
 
     @Bean
@@ -40,8 +56,26 @@ class TestcontainersConfiguration {
     }
 
     @Bean
-    public ApplicationRunner logMailpitWebPort(@Value("${spring.mail.host}") String host, @Value("${mailpit.web.port}") int port) {
+    public DynamicPropertyRegistrar keycloakRegistrar(KeycloakContainer keycloakContainer) {
+        return registry -> {
+            registry.add("spring.security.oauth2.resourceserver.jwt.jwk-set-uri",
+                    () -> keycloakContainer.getAuthServerUrl() + "/realms/" + realmName + "/protocol/openid-connect/certs");
+            registry.add("auth-server-url",
+                    keycloakContainer::getAuthServerUrl);
+        };
+    }
+
+    @Bean
+    public ApplicationRunner logTestContainerInfos(
+            @Value("${spring.mail.host}") String host,
+            @Value("${mailpit.web.port}") int port,
+            @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}") String keycloakRealm,
+            @Value("${auth-server-url}") String keycloakUrl) {
         Logger log = LoggerFactory.getLogger(getClass());
-        return args -> log.info("Mailpit accessible through http://{}:{}", host, port);
+        return args -> {
+            log.info("Mailpit accessible through http://{}:{}", host, port);
+            log.info("Keycloak is accessible through {}", keycloakUrl);
+            log.info("Keycloak jwk-set is at {}", keycloakRealm);
+        };
     }
 }

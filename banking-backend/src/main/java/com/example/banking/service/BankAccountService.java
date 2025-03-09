@@ -1,6 +1,7 @@
 package com.example.banking.service;
 
 import com.example.banking.model.BankAccount;
+import com.example.banking.model.User;
 import com.example.banking.repository.BankAccountRepository;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -22,10 +23,16 @@ public class BankAccountService {
     }
 
     @Transactional
-    public BankAccount createAccount(BankAccount account) {
+    public BankAccount createAccount(BankAccount account, User user) {
+        account.setUser(user);
         return bankAccountRepository.save(account);
     }
 
+    public List<BankAccount> getAllMyAccounts(User user) {
+        return bankAccountRepository.findAllByUser(user);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
     public List<BankAccount> getAllAccounts() {
         return bankAccountRepository.findAll();
     }

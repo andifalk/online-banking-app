@@ -10,7 +10,6 @@ import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
 import java.util.*;
@@ -19,9 +18,7 @@ public class UserAuthenticationConverter implements Converter<Jwt, AbstractAuthe
     private static final Logger logger = LoggerFactory.getLogger(UserAuthenticationConverter.class);
     private static final String DEFAULT_AUTHORITY_PREFIX = "ROLE_";
     private static final String DEFAULT_AUTHORITIES_CLAIM_DELIMITER = " ";
-    private static final Collection<String> WELL_KNOWN_AUTHORITIES_CLAIM_NAMES = Arrays.asList("scope", "scp");
-    private String subjectClaimName = "sub";
-    private String rolesClaimName = "realm_access.roles";
+    private static final Collection<String> WELL_KNOWN_AUTHORITIES_CLAIM_NAMES = Arrays.asList("scope", "scp", "roles");
     private String authoritiesClaimName;
     private final UserService userService;
 
@@ -32,14 +29,17 @@ public class UserAuthenticationConverter implements Converter<Jwt, AbstractAuthe
     @Override
     public AbstractAuthenticationToken convert(@NonNull Jwt jwt) {
         Collection<GrantedAuthority> authorities = this.convertRolesToAuthorities(jwt);
-        String subjectClaimValue = jwt.getClaimAsString(this.subjectClaimName);
+        String subjectClaimValue = jwt.getSubject();
         Optional<User> existingUser = userService.findByIdentity(subjectClaimValue);
         User user;
         if (existingUser.isEmpty()) {
             user = new User();
             user.setIdentity(subjectClaimValue);
-            user.setUsername(subjectClaimValue);
-            user.setRoles(new HashSet<>());
+            user.setUsername(jwt.getClaimAsString("preferred_username"));
+            user.setFirstName(jwt.getClaimAsString("given_name"));
+            user.setLastName(jwt.getClaimAsString("family_name"));
+            user.setEmail(jwt.getClaimAsString("email"));
+            user.setRoles(new HashSet<>(getAuthorities(jwt)));
             user = userService.create(user);
         } else {
             user = existingUser.get();
@@ -55,26 +55,37 @@ public class UserAuthenticationConverter implements Converter<Jwt, AbstractAuthe
         return grantedAuthorities;
     }
 
+    @SuppressWarnings("unchecked")
     private Collection<String> getAuthorities(Jwt jwt) {
         String claimName = getAuthoritiesClaimName(jwt);
         if (claimName == null) {
-            logger.trace("Returning no authorities since could not find any claims that might contain scopes");
+            logger.debug("Returning no authorities since could not find any claims that might contain scopes");
             return Collections.emptyList();
         }
         if (logger.isTraceEnabled()) {
-            logger.trace("Looking for scopes in claim {}", claimName);
+            logger.trace("Looking for authorities in claim {}", claimName);
         }
-        Object authorities = jwt.getClaim(claimName);
-        if (authorities instanceof String) {
-            if (StringUtils.hasText((String) authorities)) {
-                return Arrays.asList(((String) authorities).split(DEFAULT_AUTHORITIES_CLAIM_DELIMITER));
-            }
+
+        Map<String, Object> realmAccess = jwt.getClaimAsMap("realm_access");
+        if (realmAccess == null || realmAccess.isEmpty()) {
             return Collections.emptyList();
         }
-        if (authorities instanceof Collection) {
-            return castAuthoritiesToCollection(authorities);
+        if (realmAccess.containsKey("roles")) {
+            Object roles = realmAccess.get("roles");
+            if (roles instanceof Collection) {
+                return (Collection<String>) roles;
+            } else if (roles instanceof String) {
+                if (StringUtils.hasText((String) roles)) {
+                    return Arrays.asList(((String) roles).split(DEFAULT_AUTHORITIES_CLAIM_DELIMITER));
+                } else {
+                    return Collections.emptyList();
+                }
+            } else {
+                return Collections.emptyList();
+            }
+        } else {
+            return Collections.emptyList();
         }
-        return Collections.emptyList();
     }
 
     @SuppressWarnings("unchecked")
@@ -92,11 +103,6 @@ public class UserAuthenticationConverter implements Converter<Jwt, AbstractAuthe
             }
         }
         return null;
-    }
-
-    public void setSubjectClaimName(String subjectClaimName) {
-        Assert.hasText(subjectClaimName, "principalClaimName cannot be empty");
-        this.subjectClaimName = subjectClaimName;
     }
 
     public void setAuthoritiesClaimName(String authoritiesClaimName) {

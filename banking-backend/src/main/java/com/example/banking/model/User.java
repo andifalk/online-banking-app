@@ -1,5 +1,6 @@
 package com.example.banking.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
@@ -11,6 +12,8 @@ import org.springframework.data.jpa.domain.AbstractPersistable;
 
 import java.util.HashSet;
 import java.util.Set;
+
+import static jakarta.persistence.FetchType.EAGER;
 
 @Entity
 @Table(name = "banking_user")
@@ -32,7 +35,7 @@ public class User extends AbstractPersistable<Long> {
     private String email;
 
     @NotNull
-    @ElementCollection
+    @ElementCollection(fetch = EAGER)
     private Set<String> roles = new HashSet<>();
 
     public User() {
@@ -93,5 +96,17 @@ public class User extends AbstractPersistable<Long> {
 
     public void setRoles(Set<String> roles) {
         this.roles = roles;
+    }
+
+    @JsonIgnore
+    @Override
+    public Long getId() {
+        return super.getId();
+    }
+
+    @JsonIgnore
+    @Override
+    public boolean isNew() {
+        return super.isNew();
     }
 }

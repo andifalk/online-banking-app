@@ -1,0 +1,26 @@
+### Create new account
+POST http://localhost:8080/api/accounts
+Authorization: Bearer {{$auth.token("bank")}}
+Content-Type: application/json
+
+{
+  "accountNumber": "1111111111",
+  "balance": 1000.0,
+  "accountType": "SAVINGS"
+}
+
+### GET all accounts
+GET http://localhost:8080/api/accounts
+Authorization: Bearer {{$auth.token("bank")}}
+
+### Deposit money to account
+POST http://localhost:8080/api/transactions/deposit?accountNumber=1111111111&amount=100
+Authorization: Bearer {{$auth.token("bank")}}
+
+### GET statements for account
+GET http://localhost:8080/api/statements/generate/1111111111
+Authorization: Bearer {{$auth.token("bank")}}
+
+### GET user infos
+GET http://localhost:8080/api/users/me
+Authorization: Bearer {{$auth.token("bank")}}

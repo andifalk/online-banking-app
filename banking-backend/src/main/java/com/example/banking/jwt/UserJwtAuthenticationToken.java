@@ -14,6 +14,7 @@ public class UserJwtAuthenticationToken extends AbstractAuthenticationToken {
 
     public UserJwtAuthenticationToken(Jwt jwt, User user, Collection<? extends GrantedAuthority> authorities) {
         super(authorities);
+        setAuthenticated(true);
         this.user = user;
         this.jwt = jwt;
     }
