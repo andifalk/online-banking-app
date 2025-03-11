@@ -1,0 +1,14 @@
+// asciidoc settings for EN (English)
+// ==================================
+:doctype: book
+:toc-title: table of contents
+
+// enable table-of-contents
+:toc:
+:toclevels: 4
+
+:chapter-signifier: Chapter
+
+// where are images located?
+:imagesdir: ./images
+:arc42help:
