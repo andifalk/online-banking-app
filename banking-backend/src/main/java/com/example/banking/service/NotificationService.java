@@ -9,14 +9,15 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
+import java.math.BigDecimal;
 
 @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
 @Service
-public class EmailService {
+public class NotificationService {
 
     private final JavaMailSender mailSender;
 
-    public EmailService(JavaMailSender mailSender) {
+    public NotificationService(JavaMailSender mailSender) {
         this.mailSender = mailSender;
     }
 
@@ -38,6 +39,15 @@ public class EmailService {
         message.setTo(to);
         message.setSubject(subject);
         message.setText(text);
+        mailSender.send(message);
+    }
+
+    public void sendFraudAlert(String email, BigDecimal amount) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(email);
+        message.setSubject("🚨 Fraud Alert: Suspicious Transaction Detected");
+        message.setText("A transaction of $" + amount + " was flagged as suspicious.\n" +
+                "Please review your account immediately.");
         mailSender.send(message);
     }
 }

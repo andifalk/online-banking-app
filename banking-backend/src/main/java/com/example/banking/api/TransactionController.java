@@ -2,7 +2,10 @@ package com.example.banking.api;
 
 import com.example.banking.model.Transaction;
 import com.example.banking.model.TransactionType;
+import com.example.banking.model.User;
 import com.example.banking.service.TransactionService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -21,8 +24,9 @@ public class TransactionController {
     @PostMapping("/transfer")
     public Transaction transfer(@RequestParam String senderAccountNumber,
                                 @RequestParam String receiverAccountNumber,
-                                @RequestParam BigDecimal amount) {
-        return transactionService.transferMoney(senderAccountNumber, receiverAccountNumber, amount);
+                                @RequestParam BigDecimal amount,
+                                @AuthenticationPrincipal User user) {
+        return transactionService.transferMoney(user, senderAccountNumber, receiverAccountNumber, amount);
     }
 
     @PostMapping("/deposit")
@@ -38,5 +42,11 @@ public class TransactionController {
     @GetMapping("/{accountNumber}")
     public List<Transaction> getTransactionHistory(@PathVariable String accountNumber) {
         return transactionService.getTransactionsByAccount(accountNumber);
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<List<Transaction>> getTransactionHistory(@AuthenticationPrincipal User user) {
+        List<Transaction> transactions = transactionService.getTransactionHistory(user);
+        return ResponseEntity.ok(transactions);
     }
 }

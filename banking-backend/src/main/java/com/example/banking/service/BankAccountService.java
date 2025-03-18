@@ -41,6 +41,10 @@ public class BankAccountService {
         return bankAccountRepository.findById(id);
     }
 
+    public Optional<BankAccount> findByAccountNumberForUser(String accountNumber, User user) {
+        return bankAccountRepository.findByAccountNumberAndUser(accountNumber, user);
+    }
+
     public Optional<BankAccount> findByAccountNumber(String accountNumber) {
         return bankAccountRepository.findByAccountNumber(accountNumber);
     }

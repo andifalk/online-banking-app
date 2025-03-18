@@ -2,6 +2,7 @@ package com.example.banking.api;
 
 import com.example.banking.model.BankAccount;
 import com.example.banking.model.Transaction;
+import com.example.banking.model.TransactionType;
 import com.example.banking.model.User;
 import com.example.banking.service.BankAccountService;
 import com.example.banking.service.TransactionService;
@@ -10,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -97,7 +99,32 @@ public class AdminController {
                     "Final Balance", currentBalance
             ));
         }
+    }
 
+    @GetMapping("/user-reports")
+    public ResponseEntity<Map<String, Object>> getUserReports() {
+        List<User> users = userService.findAll();
+        Map<String, Object> report = new HashMap<>();
 
+        for (User user : users) {
+            List<Transaction> transactions = transactionService.getTransactionHistory(user);
+            BigDecimal totalDeposits = transactions.stream()
+                    .filter(tx -> TransactionType.DEPOSIT.equals(tx.getTransactionType()))
+                    .map(Transaction::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal totalWithdrawals = transactions.stream()
+                    .filter(tx -> TransactionType.WITHDRAW.equals(tx.getTransactionType()))
+                    .map(Transaction::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            report.put(user.getUsername(), Map.of(
+                    "Total Deposits", totalDeposits,
+                    "Total Withdrawals", totalWithdrawals,
+                    "Transaction Count", transactions.size()
+            ));
+        }
+
+        return ResponseEntity.ok(report);
     }
 }

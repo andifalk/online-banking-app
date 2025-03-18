@@ -3,6 +3,7 @@ package com.example.banking.service;
 import com.example.banking.model.BankAccount;
 import com.example.banking.model.Transaction;
 import com.example.banking.model.TransactionType;
+import com.example.banking.model.User;
 import com.example.banking.repository.BankAccountRepository;
 import com.example.banking.repository.TransactionRepository;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,16 +25,20 @@ public class TransactionService {
 
     private final TransactionRepository transactionRepository;
     private final BankAccountRepository bankAccountRepository;
-    private final EmailService emailService;
+    private final NotificationService notificationService;
+    private final FraudDetectionService fraudDetectionService;
+    private final BankAccountService bankAccountService;
 
-    public TransactionService(TransactionRepository transactionRepository, BankAccountRepository bankAccountRepository, EmailService emailService) {
+    public TransactionService(TransactionRepository transactionRepository, BankAccountRepository bankAccountRepository, NotificationService notificationService, FraudDetectionService fraudDetectionService, BankAccountService bankAccountService) {
         this.transactionRepository = transactionRepository;
         this.bankAccountRepository = bankAccountRepository;
-        this.emailService = emailService;
+        this.notificationService = notificationService;
+        this.fraudDetectionService = fraudDetectionService;
+        this.bankAccountService = bankAccountService;
     }
 
     @Transactional
-    public Transaction transferMoney(String senderAccountNumber, String receiverAccountNumber, BigDecimal amount) {
+    public Transaction transferMoney(User user, String senderAccountNumber, String receiverAccountNumber, BigDecimal amount) {
         Optional<BankAccount> sender = bankAccountRepository.findByAccountNumber(senderAccountNumber);
         Optional<BankAccount> receiver = bankAccountRepository.findByAccountNumber(receiverAccountNumber);
 
@@ -46,11 +52,6 @@ public class TransactionService {
                 throw new RuntimeException("Insufficient funds");
             }
 
-            senderAccount.setBalance(senderAccount.getBalance().subtract(amount));
-            receiverAccount.setBalance(receiverAccount.getBalance().add(amount));
-
-            bankAccountRepository.save(senderAccount);
-            bankAccountRepository.save(receiverAccount);
 
             Transaction transaction = new Transaction();
             transaction.setTransactionType(TRANSFER);
@@ -58,20 +59,39 @@ public class TransactionService {
             transaction.setTimestamp(LocalDateTime.now());
             transaction.setBankAccount(senderAccount);
 
+            if (fraudDetectionService.isSuspiciousTransaction(senderAccount, user, amount)) {
+                transaction.markPending();
+            } else {
+                transaction.approve();
+                senderAccount.setBalance(senderAccount.getBalance().subtract(amount));
+                receiverAccount.setBalance(receiverAccount.getBalance().add(amount));
+                bankAccountRepository.save(senderAccount);
+                bankAccountRepository.save(receiverAccount);
+            }
+
             Transaction savedTransaction = transactionRepository.save(transaction);
 
             // Notify sender
             String senderMessage = "Dear User,\n\nYou transferred $" + amount + " to " + receiverAccount.getAccountNumber() +
                     ". Your new balance is $" + senderAccount.getBalance() + ".\n\nThank you for banking with us!";
-            emailService.sendTransactionEmail("sender@example.com", "Money Transfer Alert", senderMessage);
+            notificationService.sendTransactionEmail("sender@example.com", "Money Transfer Alert", senderMessage);
 
             // Notify receiver
             String receiverMessage = "Dear User,\n\nYou received $" + amount + " from " + senderAccount.getAccountNumber() +
                     ". Your new balance is $" + receiverAccount.getBalance() + ".\n\nThank you for banking with us!";
-            emailService.sendTransactionEmail("receiver@example.com", "Money Received Alert", receiverMessage);
+            notificationService.sendTransactionEmail("receiver@example.com", "Money Received Alert", receiverMessage);
 
             return savedTransaction;
         }
+    }
+
+    public List<Transaction> getTransactionHistory(User user) {
+        List<Transaction> transactions = new ArrayList<>();
+        List<BankAccount> accounts = bankAccountService.getAllMyAccounts(user);
+        for (BankAccount account : accounts) {
+            transactions.addAll(transactionRepository.findByBankAccount(account));
+        }
+        return transactions;
     }
 
     public List<Transaction> findByBankAccount(BankAccount bankAccount) {
@@ -127,7 +147,7 @@ public class TransactionService {
                     "Amount: $" + amount + "\n" +
                     "Current Balance: $" + bankAccount.getBalance() + "\n\n" +
                     "Thank you for banking with us!";
-            emailService.sendTransactionEmail("user@example.com", subject, message);
+            notificationService.sendTransactionEmail("user@example.com", subject, message);
 
             return savedTransaction;
         }

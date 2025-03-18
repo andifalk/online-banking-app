@@ -24,12 +24,12 @@ import java.util.Optional;
 public class StatementService {
     private final TransactionRepository transactionRepository;
     private final BankAccountRepository bankAccountRepository;
-    private final EmailService emailService;
+    private final NotificationService notificationService;
 
-    public StatementService(TransactionRepository transactionRepository, BankAccountRepository bankAccountRepository, EmailService emailService) {
+    public StatementService(TransactionRepository transactionRepository, BankAccountRepository bankAccountRepository, NotificationService notificationService) {
         this.transactionRepository = transactionRepository;
         this.bankAccountRepository = bankAccountRepository;
-        this.emailService = emailService;
+        this.notificationService = notificationService;
     }
 
     public void sendMonthlyStatement(String accountNumber, String email) throws MessagingException {
@@ -69,7 +69,7 @@ public class StatementService {
                         contentStream.close();
                         document.save(outputStream);
 
-                        emailService.sendEmailWithAttachment(email, outputStream.toByteArray());
+                        notificationService.sendEmailWithAttachment(email, outputStream.toByteArray());
 
                     } catch (Exception e) {
                         throw new RuntimeException("Error generating statement", e);
