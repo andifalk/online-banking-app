@@ -16,11 +16,12 @@ create sequence bank_transaction_seq start with 1 increment by 50;
 create sequence banking_user_seq start with 1 increment by 50;
 create table bank_transaction
 (
-    amount           numeric(38, 2) not null,
-    account_id       bigint         not null,
-    id               bigint         not null,
-    timestamp        timestamp(6)   not null,
-    transaction_type varchar(255) check (transaction_type in ('DEPOSIT', 'WITHDRAW', 'TRANSFER')),
+    amount             numeric(38, 2) not null,
+    account_id         bigint         not null,
+    id                 bigint         not null,
+    timestamp          timestamp(6)   not null,
+    transaction_type   varchar(255) check (transaction_type in ('DEPOSIT', 'WITHDRAW', 'TRANSFER')),
+    transaction_status varchar(255) check (transaction_status in ('APPROVED', 'PENDING', 'REJECTED')),
     primary key (id)
 );
 create table bank_account
